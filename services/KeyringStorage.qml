@@ -60,10 +60,28 @@ Singleton {
 
     function saveKeyringData() {
         dataFile.setText(JSON.stringify(root.keyringData, null, 2))
+        securePermsProcess.running = true
         root.dataChanged()
     }
 
-    Component.onCompleted: dataFile.reload()
+    // The key file must never be world-readable. FileView would create it with
+    // the process umask (typically 644), so the file is pre-created owner-only
+    // (umask 077) and locked down before Quickshell ever writes to it.
+    Component.onCompleted: secureInitProcess.running = true
+
+    Process {
+        id: secureInitProcess
+        command: ["bash", "-c",
+            `mkdir -p '${Directories.shellConfig}' && chmod 700 '${Directories.shellConfig}'; ` +
+            `if [ ! -e '${Directories.aiPanelDataPath}' ]; then (umask 077 && touch '${Directories.aiPanelDataPath}'); fi; ` +
+            `chmod 600 '${Directories.aiPanelDataPath}'`]
+        onExited: dataFile.reload()
+    }
+
+    Process {
+        id: securePermsProcess
+        command: ["chmod", "600", Directories.aiPanelDataPath]
+    }
 
     FileView {
         id: dataFile

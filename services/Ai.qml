@@ -321,7 +321,7 @@ Singleton {
         }
     }
 
-    property string requestScriptFilePath: "/tmp/quickshell/ai/request.sh"
+    property string requestScriptFilePath: `${Directories.aiTmpDir}/request.sh`
     property string pendingFilePath: ""
 
     Component.onCompleted: {
@@ -577,7 +577,6 @@ Singleton {
 
     Process {
         id: requester
-        property list<string> baseCommand: ["bash"]
         property AiMessageData message
         property ApiStrategy currentStrategy
 
@@ -602,6 +601,9 @@ Singleton {
 
             /* Put API key in environment variable */
             if (model.requires_key) requester.environment[`${root.apiKeyEnvVarName}`] = root.apiKeys ? (root.apiKeys[model.key_id] ?? "") : ""
+
+            /* Private scratch dir for the request script and provider temp files */
+            requester.environment["AI_TMP_DIR"] = Directories.aiTmpDir
 
             /* Build endpoint, request data */
             const endpoint = root.currentApiStrategy.buildEndpoint(model);
@@ -663,7 +665,9 @@ Singleton {
             const shellScriptPath = CF.FileUtils.trimFileProtocol(root.requestScriptFilePath)
             requesterScriptFile.path = Qt.resolvedUrl(shellScriptPath)
             requesterScriptFile.setText(scriptContent)
-            requester.command = baseCommand.concat([shellScriptPath]);
+            // Ownership guard: refuse to execute the script unless it is owned
+            // by the current user (defeats symlink swaps / pre-positioned files).
+            requester.command = ["bash", "-c", '[ -O "$1" ] && exec bash "$1"; exit 126', "bash", shellScriptPath];
             requester.running = true
         }
 
@@ -722,7 +726,13 @@ Singleton {
     }
 
     function attachFile(filePath: string) {
-        root.pendingFilePath = CF.FileUtils.trimFileProtocol(filePath);
+        let trimmedPath = CF.FileUtils.trimFileProtocol(filePath);
+        // Expand a leading ~ (bash never expands it once the path is quoted
+        // inside the generated request script).
+        if (trimmedPath === "~" || trimmedPath.startsWith("~/")) {
+            trimmedPath = Directories.home + trimmedPath.slice(1);
+        }
+        root.pendingFilePath = trimmedPath;
     }
 
     function regenerate(messageIndex) {

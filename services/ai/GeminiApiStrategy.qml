@@ -229,8 +229,8 @@ ApiStrategy {
         content += `IMAGE_PATH='${CF.StringUtils.shellSingleQuoteEscape(trimmedFilePath)}'\n`;
         content += `${fileMimeTypeVarName}=$(file -b --mime-type "$IMAGE_PATH")\n`;
         content += 'NUM_BYTES=$(wc -c < "${IMAGE_PATH}")\n';
-        content += 'tmp_header_file="/tmp/quickshell/ai/upload-header.tmp"\n';
-        content += 'tmp_file_info_file="/tmp/quickshell/ai/file-info.json.tmp"\n';
+        content += 'tmp_header_file="$AI_TMP_DIR/upload-header.tmp"\n';
+        content += 'tmp_file_info_file="$AI_TMP_DIR/file-info.json.tmp"\n';
 
         // Initial resumable request defining metadata.
         // The upload url is in the response headers dump them to a file.
@@ -259,6 +259,13 @@ ApiStrategy {
             + '\n';
 
         content += `${fileUriVarName}=$(jq -r ".file.uri" "$tmp_file_info_file")\n`
+
+        // Fail loudly instead of sending an empty URI upstream.
+        content += 'if [ -z "$file_uri" ] || [ "$file_uri" = "null" ]; then\n';
+        content += '  printf \'{"error":{"code":400,"message":"Attachment failed: the file could not be uploaded."}}\\n,\\n\'\n';
+        content += '  exit 0\n';
+        content += 'fi\n';
+
         content += `printf "{\\"uploadedFile\\": {\\"uri\\": \\"$${fileUriVarName}\\", \\"mimeType\\": \\"$${fileMimeTypeVarName}\\"}}\\n,\\n"\n`
 
         return content

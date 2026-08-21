@@ -38,6 +38,10 @@ Singleton {
     // and would silently relocate the chat history.
     readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || FileUtils.trimFileProtocol(`${home}/.local/state`)
     property string aiChats: FileUtils.trimFileProtocol(`${stateHome}/ai-panel/ai/chats`)
+    // Private scratch space for request scripts and provider temp files.
+    // Lives under the user's state home (mode 700) instead of shared /tmp so
+    // other local users cannot pre-position or swap files we later execute.
+    property string aiTmpDir: FileUtils.trimFileProtocol(`${stateHome}/ai-panel/tmp`)
     // Cleanup on init
     Component.onCompleted: {
         Quickshell.execDetached(["mkdir", "-p", `${shellConfig}`])
@@ -45,5 +49,6 @@ Singleton {
         Quickshell.execDetached(["bash", "-c", `rm -rf '${cliphistDecode}'; mkdir -p '${cliphistDecode}'`])
         Quickshell.execDetached(["mkdir", "-p", `${aiChats}`])
         Quickshell.execDetached(["mkdir", "-p", `${userAiPrompts}`])
+        Quickshell.execDetached(["bash", "-c", `mkdir -p -m 700 '${aiTmpDir}'`])
     }
 }
