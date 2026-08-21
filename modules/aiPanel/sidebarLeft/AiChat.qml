@@ -209,24 +209,6 @@ echo "Hello, $name!"
         messageListView.positionViewAtEnd();
     }
 
-    Process {
-        id: decodeImageAndAttachProc
-        property string imageDecodePath: Directories.cliphistDecode
-        property string imageDecodeFileName: "image"
-        property string imageDecodeFilePath: `${imageDecodePath}/${imageDecodeFileName}`
-        function handleEntry(entry: string) {
-            imageDecodeFileName = parseInt(entry.match(/^(\d+)\t/)[1]);
-            decodeImageAndAttachProc.exec(["bash", "-c", `[ -f ${imageDecodeFilePath} ] || echo '${StringUtils.shellSingleQuoteEscape(entry)}' | ${Cliphist.cliphistBinary} decode > '${imageDecodeFilePath}'`]);
-        }
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0) {
-                Ai.attachFile(imageDecodeFilePath);
-            } else {
-                console.error("[AiChat] Failed to decode image in clipboard content");
-            }
-        }
-    }
-
     component StatusItem: MouseArea {
         id: statusItem
         property string icon
@@ -653,22 +635,28 @@ echo "Hello, $name!"
                                     event.accepted = true;
                                     return;
                                 }
-                                // Try image paste first
-                                const currentClipboardEntry = Cliphist.entries[0];
-                                const cleanCliphistEntry = StringUtils.cleanCliphistEntry(currentClipboardEntry);
-                                if (/^\d+\t\[\[.*binary data.*\d+x\d+.*\]\]$/.test(currentClipboardEntry)) {
-                                    // First entry = currently copied entry = image?
-                                    decodeImageAndAttachProc.handleEntry(currentClipboardEntry);
-                                    event.accepted = true;
-                                    return;
-                                } else if (cleanCliphistEntry.startsWith("file://")) {
-                                    // First entry = currently copied entry = image?
-                                    const fileName = decodeURIComponent(cleanCliphistEntry);
-                                    Ai.attachFile(fileName);
-                                    event.accepted = true;
-                                    return;
-                                }
-                                event.accepted = false; // No image, let text pasting proceed
+                                // Try image paste first via Omarchy's live clipboard
+                                // history (screenshots land there as image entries).
+                                // Read is async but fast; we always handle the event.
+                                OmarchyClipboard.loadLatest(function(l) {
+                                    if (l && l.type === "image" && l.path) {
+                                        Ai.attachFile(l.path);
+                                        return;
+                                    }
+                                    if (l && l.type === "text") {
+                                        const clipboardText = l.text || "";
+                                        if (clipboardText.startsWith("file://")) {
+                                            // Copied an image/file from a file manager
+                                            Ai.attachFile(decodeURIComponent(clipboardText));
+                                            return;
+                                        }
+                                        messageInputField.text += clipboardText;
+                                        return;
+                                    }
+                                    // History unavailable/stale — fall back to live clipboard text
+                                    messageInputField.text += Quickshell.clipboardText || "";
+                                });
+                                event.accepted = true;
                             } else if (event.key === Qt.Key_Escape) {
                                 if (Ai.pendingFilePath.length > 0) {
                                     Ai.attachFile("");

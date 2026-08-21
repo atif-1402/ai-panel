@@ -778,6 +778,14 @@ function createFunctionOutputMessage(name, output, includeOutputInChat = true, f
         if (!message.functionPending) return;
         message.functionPending = false; // User decided, no more "thinking"
 
+        if (message.functionName === "set_shell_config") {
+            const args = message.functionCall?.args ?? {};
+            Config.setNestedValue(args.key, args.value);
+            addFunctionOutputMessage("set_shell_config", Translation.tr("Config updated: %1 = %2").arg(args.key ?? "").arg(String(args.value ?? "")), message.functionCallId);
+            requester.makeRequest(); // Continue
+            return;
+        }
+
         const responseMessage = createFunctionOutputMessage(message.functionName, "", false, message.functionCallId);
         const id = idForMessage(responseMessage);
         root.messageIDs = [...root.messageIDs, id];
@@ -822,13 +830,15 @@ function createFunctionOutputMessage(name, output, includeOutputInChat = true, f
             addFunctionOutputMessage(name, JSON.stringify(configJson), callId);
             requester.makeRequest();
         } else if (name === "set_shell_config") {
-            if (!args.key || !args.value) {
+            if (!args.key || args.value === undefined) {
                 addFunctionOutputMessage(name, Translation.tr("Invalid arguments. Must provide `key` and `value`."), callId);
                 return;
             }
-            const key = args.key;
-            const value = args.value;
-            Config.setNestedValue(key, value);
+            // Config writes are gated behind user approval, same as shell commands.
+            const contentToAppend = `\n\n**Config change request**\n\n\`\`\`command\n${args.key} = ${String(args.value)}\n\`\`\``;
+            message.rawContent += contentToAppend;
+            message.content += contentToAppend;
+            message.functionPending = true; // Wait for user approval
         } else if (name === "run_shell_command") {
             if (!args.command || args.command.length === 0) {
                 addFunctionOutputMessage(name, Translation.tr("Invalid arguments. Must provide `command`."));

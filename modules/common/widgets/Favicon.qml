@@ -30,7 +30,7 @@ IconImage {
     Process {
         id: faviconDownloadProcess
         running: false
-        command: ["bash", "-c", `[ -f ${faviconFilePath} ] || curl -s '${root.faviconUrl}' -o '${faviconFilePath}' -L -H 'User-Agent: ${downloadUserAgent}'`]
+        command: ["bash", "-c", `[ -f ${faviconFilePath} ] || curl -s '${root.faviconUrl}' -o '${faviconFilePath}' -L -H 'User-Agent: ${StringUtils.shellSingleQuoteEscape(downloadUserAgent)}'`]
         onExited: (exitCode, exitStatus) => {
             root.urlToLoad = root.faviconFilePath
         }

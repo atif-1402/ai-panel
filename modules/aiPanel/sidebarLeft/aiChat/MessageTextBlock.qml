@@ -25,19 +25,159 @@ ColumnLayout {
     property string shownText: ""
 
     /**
+     * Backslash-escapes the characters that drive markdown structure, so a
+     * construct renders as its own literal text and can never be re-parsed
+     * into an image/link (nothing is fetched from plain text).
+     */
+    function mdEscapeLiteral(t: string): string {
+        return String(t).replace(/([\\`\[\]!()<>])/g, "\\$1");
+    }
+
+    /**
      * Removes resource-embedding constructs (markdown images, HTML media
-     * tags) from provider-controlled markdown before it is rendered. The
-     * text editor fetches referenced URLs automatically, so without this a
-     * response could make the shell UI contact arbitrary hosts. Raw content
-     * is untouched: editing still shows the original text.
+     * tags) from provider-controlled markdown before it is rendered — the
+     * text editor fetches referenced URLs automatically. Implemented as a
+     * small scanner rather than regexes so escaped brackets, nested
+     * brackets and quoted attributes cannot bypass it. Matched constructs
+     * are preserved visibly as inert literal text instead of being dropped.
+     * Inline code spans and properly closed fenced blocks are copied
+     * verbatim (markdown is not parsed there). Raw content is untouched:
+     * editing still shows the original text.
      */
     function sanitizeForDisplay(markdown: string): string {
-        let s = String(markdown);
-        s = s.replace(/!\[[^\]]*\]\(\s*[^)]*\)/g, "");                      // ![alt](url)
-        s = s.replace(/!\[[^\]]*\]\[\s*[^\]]*\]/g, "");                     // ![alt][ref]
-        s = s.replace(/<\s*img\b[^>]*\/?>/gi, "");                          // <img>
-        s = s.replace(/<\s*(iframe|object|embed|video|audio|source|track)\b[\s\S]*?(?:<\/\s*\1\s*>|\/?>)/gi, "");
-        return s;
+        const s = String(markdown);
+        let out = "";
+        let i = 0;
+        const n = s.length;
+
+        function fenceOpenAt(pos) {
+            if (!(pos === 0 || s[pos - 1] === "\n")) return null;
+            let p = pos, spaces = 0;
+            while (p < n && s[p] === " " && spaces < 3) { p++; spaces++; }
+            if (p >= n || (s[p] !== "`" && s[p] !== "~")) return null;
+            const ch = s[p];
+            let count = 0;
+            while (p < n && s[p] === ch) { p++; count++; }
+            return count < 3 ? null : { ch: ch, count: count, after: p };
+        }
+
+        function findFenceClose(ch, count, from) {
+            let ls = from;
+            while (ls <= n) {
+                const nl = s.indexOf("\n", ls);
+                const le = nl === -1 ? n : nl;
+                let p = ls, sp = 0;
+                while (p < le && s[p] === " " && sp < 3) { p++; sp++; }
+                let c = 0;
+                while (p < le && s[p] === ch) { p++; c++; }
+                if (c >= count && s.slice(p, le).trim() === "") return ls;
+                if (nl === -1) break;
+                ls = nl + 1;
+            }
+            return -1;
+        }
+
+        function findSpanClose(start, runLen) {
+            const needle = "`".repeat(runLen);
+            let idx = start;
+            while (true) {
+                idx = s.indexOf(needle, idx);
+                if (idx === -1) return -1;
+                const beforeOk = idx === 0 || s[idx - 1] !== "`";
+                const after = idx + runLen;
+                const afterOk = after >= n || s[after] !== "`";
+                if (beforeOk && afterOk) return idx;
+                idx++;
+            }
+        }
+
+        function tryParseImage(pos) {
+            let j = pos + 2;
+            let depth = 1;
+            while (j < n) {
+                const c = s[j];
+                if (c === "\\") { j += 2; continue; }
+                if (c === "[") depth++;
+                else if (c === "]") { depth--; if (depth === 0) break; }
+                j++;
+            }
+            if (depth !== 0) return -1;
+            let k = j + 1;
+            let newlines = 0;
+            while (k < n && /\s/.test(s[k])) {
+                if (s[k] === "\n") { newlines++; if (newlines > 1) break; }
+                k++;
+            }
+            if (s[k] === "(") {
+                k++; let pd = 1, q = null;
+                while (k < n) {
+                    const c = s[k];
+                    if (q) { if (c === q) q = null; }
+                    else if (c === "\"" || c === "'") q = c;
+                    else if (c === "(") pd++;
+                    else if (c === ")") { pd--; if (pd === 0) return k + 1; }
+                    k++;
+                }
+                return -1;
+            }
+            if (s[k] === "[") {
+                let d = 1; k++;
+                while (k < n) {
+                    const c = s[k];
+                    if (c === "\\") { k += 2; continue; }
+                    if (c === "[") d++;
+                    else if (c === "]") { d--; if (d === 0) return k + 1; }
+                    k++;
+                }
+                return -1;
+            }
+            return -1;
+        }
+
+        function tryParseMediaTag(pos) {
+            let j = pos + 1;
+            if (j < n && s[j] === "/") j++;
+            const m = /^(img|iframe|object|embed|video|audio|source|track)\b/i.exec(s.slice(j, j + 12));
+            if (!m) return -1;
+            j += m[1].length;
+            let q = null;
+            while (j < n && j - pos < 4096) {
+                const c = s[j];
+                if (q) { if (c === q) q = null; }
+                else if (c === "\"" || c === "'") q = c;
+                else if (c === ">") return j + 1;
+                j++;
+            }
+            return -2; // media tag name matched but never terminated
+        }
+
+        while (i < n) {
+            const f = fenceOpenAt(i);
+            if (f) {
+                const close = findFenceClose(f.ch, f.count, f.after);
+                if (close !== -1) { out += s.slice(i, close); i = close; continue; }
+            }
+            if (s[i] === "`") {
+                let rl = 0, p = i;
+                while (p < n && s[p] === "`") { rl++; p++; }
+                const close = findSpanClose(p, rl);
+                if (close !== -1) { const end = close + rl; out += s.slice(i, end); i = end; continue; }
+                out += "`"; i++; continue;
+            }
+            if (s[i] === "!" && i + 1 < n && s[i + 1] === "[") {
+                const r = tryParseImage(i);
+                if (r !== -1) { out += mdEscapeLiteral(s.slice(i, r)); i = r; continue; }
+                out += "!"; i++; continue;
+            }
+            if (s[i] === "<") {
+                const r = tryParseMediaTag(i);
+                if (r === -2) { out += "&lt;"; i++; continue; }
+                if (r !== -1) { out += "&lt;" + s.slice(i + 1, r - 1) + "&gt;"; i = r; continue; }
+                out += "<"; i++; continue;
+            }
+            out += s[i]; i++;
+        }
+        return out;
     }
 
     property list<string> shownTextBlocks: root.fadeChunkSplitting ? root.shownText.split(/\n\n(?= {0,2})|\n(?= {0,2}[-\*])/g).filter(line => line.trim() !== "") : [root.shownText]

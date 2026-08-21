@@ -162,14 +162,5 @@ Singleton {
         if (typeof str !== 'string')
             return str;
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    /**
-     * Cleans a cliphist entry by removing leading digits and tab.
-     * @param { string } str
-     * @returns { string }
-     */
-    function cleanCliphistEntry(str: string): string {
-        return str.replace(/^\d+\t/, "");
-    }
+     }
 }

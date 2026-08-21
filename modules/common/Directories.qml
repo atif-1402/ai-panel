@@ -26,7 +26,6 @@ Singleton {
     property string assetsPath: FileUtils.trimFileProtocol(Qt.resolvedUrl("../../assets"))
     property string scriptPath: FileUtils.trimFileProtocol(Qt.resolvedUrl("../../scripts"))
     property string favicons: FileUtils.trimFileProtocol(`${Directories.cache}/media/favicons`)
-    property string cliphistDecode: FileUtils.trimFileProtocol(`/tmp/quickshell/media/cliphist`)
     property string shellConfig: FileUtils.trimFileProtocol(`${Directories.config}/ai-panel`)
     property string shellConfigName: "config.json"
     property string shellConfigPath: `${Directories.shellConfig}/${Directories.shellConfigName}`
@@ -46,7 +45,6 @@ Singleton {
     Component.onCompleted: {
         Quickshell.execDetached(["mkdir", "-p", `${shellConfig}`])
         Quickshell.execDetached(["mkdir", "-p", `${favicons}`])
-        Quickshell.execDetached(["bash", "-c", `rm -rf '${cliphistDecode}'; mkdir -p '${cliphistDecode}'`])
         Quickshell.execDetached(["mkdir", "-p", `${aiChats}`])
         Quickshell.execDetached(["mkdir", "-p", `${userAiPrompts}`])
         Quickshell.execDetached(["bash", "-c", `mkdir -p -m 700 '${aiTmpDir}'`])
