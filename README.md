@@ -12,6 +12,7 @@ A native [Omarchy](https://omarchy.org) shell plugin: a full AI chat sidebar sum
 - **Saved chats** — name, save, and reload conversations
 - **Theme-aware** — automatically follows `omarchy theme set`, including light themes
 - **Slash commands** for everything
+- **RUN /quattro INSIDE PANEL FOR EASTER EGG**
 
 ## Install
 
