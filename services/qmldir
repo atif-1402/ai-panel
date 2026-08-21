@@ -1,0 +1,7 @@
+singleton Ai 1.0 Ai.qml
+singleton Translation 1.0 Translation.qml
+singleton GlobalFocusGrab 1.0 GlobalFocusGrab.qml
+singleton Cliphist 1.0 Cliphist.qml
+singleton SystemInfo 1.0 SystemInfo.qml
+singleton DateTime 1.0 DateTime.qml
+singleton KeyringStorage 1.0 KeyringStorage.qml

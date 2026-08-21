@@ -1,0 +1,6 @@
+singleton ColorUtils 1.0 ColorUtils.qml
+singleton FileUtils 1.0 FileUtils.qml
+singleton Fuzzy 1.0 Fuzzy.qml
+singleton ObjectUtils 1.0 ObjectUtils.qml
+singleton StringUtils 1.0 StringUtils.qml
+singleton SyntaxHighlighterEngine 1.0 SyntaxHighlighterEngine.qml

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.atif-1402.ai-panel",
+  "name": "AI Panel",
+  "version": "0.1.0",
+  "author": "atif-1402",
+  "license": "MIT",
+  "description": "AI chat sidebar with streaming responses, prompt presets, and multi-provider support.",
+  "kinds": ["panel"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}
