@@ -15,12 +15,14 @@ Singleton {
     }
 
     /**
-     * Returns the domain of the passed in url or null
+     * Returns the domain of the passed in url or null.
+     * Only hostname characters are accepted, so the result is always safe to
+     * embed in shell commands, file paths and URLs.
      * @param { string } url
      * @returns { string| null }
      */
     function getDomain(url) {
-        const match = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/]+)/);
+        const match = String(url).match(/^(?:https?:\/\/)?(?:www\.)?([A-Za-z0-9.-]+)/);
         return match ? match[1] : null;
     }
 
@@ -33,6 +35,17 @@ Singleton {
         return String(str)
         // .replace(/\\/g, '\\\\')
         .replace(/'/g, "'\\''");
+    }
+
+    /**
+     * Escapes a string for safe interpolation inside a double-quoted bash
+     * context by neutralizing the characters that are special there
+     * (backslash, double quote, dollar sign, backtick).
+     * @param { string } str
+     * @returns { string }
+     */
+    function shellDoubleQuoteEscape(str) {
+        return String(str).replace(/([\\"$`])/g, "\\$1");
     }
 
     /**

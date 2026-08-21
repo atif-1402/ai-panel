@@ -1,11 +1,12 @@
 import QtQuick
+import "../../modules/common/functions" as CF
 
 ApiStrategy {
     property bool isReasoning: false
     
     function buildEndpoint(model: AiModel): string {
         // console.log("[AI] Endpoint: " + model.endpoint);
-        return model.endpoint;
+        return CF.StringUtils.shellDoubleQuoteEscape(model.endpoint);
     }
 
     function buildRequestData(model: AiModel, messages, systemPrompt: string, temperature: real, tools: list<var>, filePath: string) {

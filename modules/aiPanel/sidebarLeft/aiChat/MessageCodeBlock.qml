@@ -103,8 +103,8 @@ ColumnLayout {
                     onClicked: {
                         const downloadPath = FileUtils.trimFileProtocol(Directories.downloads)
                         const safeLang = StringUtils.shellSingleQuoteEscape(String(segmentLang || "txt").replace(/[^a-zA-Z0-9_.-]/g, "-"))
-                        Quickshell.execDetached(["bash", "-c", 
-                            `echo '${StringUtils.shellSingleQuoteEscape(segmentContent)}' > '${downloadPath}/code.${safeLang}'`
+                        Quickshell.execDetached(["bash", "-c",
+                            `printf '%s\\n' '${StringUtils.shellSingleQuoteEscape(segmentContent)}' > '${downloadPath}/code.${safeLang}'`
                         ])
                         Quickshell.execDetached(["notify-send", 
                             Translation.tr("Code saved to file"), 

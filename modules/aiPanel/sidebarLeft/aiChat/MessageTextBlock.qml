@@ -24,6 +24,22 @@ ColumnLayout {
     property bool messageDone: root.messageData?.done ?? true
     property string shownText: ""
 
+    /**
+     * Removes resource-embedding constructs (markdown images, HTML media
+     * tags) from provider-controlled markdown before it is rendered. The
+     * text editor fetches referenced URLs automatically, so without this a
+     * response could make the shell UI contact arbitrary hosts. Raw content
+     * is untouched: editing still shows the original text.
+     */
+    function sanitizeForDisplay(markdown: string): string {
+        let s = String(markdown);
+        s = s.replace(/!\[[^\]]*\]\(\s*[^)]*\)/g, "");                      // ![alt](url)
+        s = s.replace(/!\[[^\]]*\]\[\s*[^\]]*\]/g, "");                     // ![alt][ref]
+        s = s.replace(/<\s*img\b[^>]*\/?>/gi, "");                          // <img>
+        s = s.replace(/<\s*(iframe|object|embed|video|audio|source|track)\b[\s\S]*?(?:<\/\s*\1\s*>|\/?>)/gi, "");
+        return s;
+    }
+
     property list<string> shownTextBlocks: root.fadeChunkSplitting ? root.shownText.split(/\n\n(?= {0,2})|\n(?= {0,2}[-\*])/g).filter(line => line.trim() !== "") : [root.shownText]
     property bool fadeChunkSplitting: !forceDisableChunkSplitting && !editing && !/\n\|/.test(shownText) && Config.options.sidebar.ai.textFadeIn
 
@@ -33,13 +49,15 @@ ColumnLayout {
         if (editing) {
             // console.log("Editing mode enabled", segmentContent)
             root.shownText = segmentContent
+        } else if (segmentContent) {
+            root.shownText = root.sanitizeForDisplay(segmentContent)
         }
     }
 
     onSegmentContentChanged: {
         // console.log("Segment content changed: " + segmentContent);
         if (!root.editing && segmentContent) {
-            root.shownText = segmentContent;
+            root.shownText = root.sanitizeForDisplay(segmentContent);
         }
     }
 

@@ -10,7 +10,11 @@ ApiStrategy {
     property string buffer: ""
     
     function buildEndpoint(model: AiModel): string {
-        const result = model.endpoint + `?key=\$\{${root.apiKeyEnvVarName}\}`
+        // The endpoint is interpolated into a double-quoted bash string, so
+        // escape the user-configured part; the ${API_KEY} suffix must stay
+        // unescaped so the shell expands it at runtime.
+        const escapedEndpoint = CF.StringUtils.shellDoubleQuoteEscape(model.endpoint);
+        const result = escapedEndpoint + `?key=\$\{${root.apiKeyEnvVarName}\}`
         // console.log("[AI] Endpoint: " + result);
         return result;
     }

@@ -15,7 +15,13 @@ IconImage {
     property real size: 32
     property string downloadUserAgent: Config.options?.networking.userAgent ?? ""
     property string faviconDownloadPath: Directories.favicons
-    property string domainName: url.includes("vertexaisearch") ? displayText : StringUtils.getDomain(url)
+    // The domain comes from provider-controlled content (e.g. search
+    // annotations), so restrict it to hostname characters before it reaches
+    // shell commands or file paths.
+    property string domainName: {
+        const raw = url.includes("vertexaisearch") ? displayText : StringUtils.getDomain(url);
+        return String(raw ?? "").replace(/[^A-Za-z0-9.-]/g, "");
+    }
     property string faviconUrl: `https://www.google.com/s2/favicons?domain=${domainName}&sz=32`
     property string fileName: `${domainName}.ico`
     property string faviconFilePath: `${faviconDownloadPath}/${fileName}`
