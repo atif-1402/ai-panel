@@ -1,7 +1,5 @@
 .pragma library
 
-// Maps Material Symbols icon names (used by the ii AI panel) to Nerd Font
-// glyphs (codepoints from https://www.nerdfonts.com/cheat-sheet).
 function nerdIcon(name) {
     switch (name) {
         case "key": return "\uDB80\uDF06";
