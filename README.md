@@ -2,7 +2,7 @@
 
 A native [Omarchy](https://omarchy.org) shell plugin: a full AI chat sidebar summoned with a keypress. Streaming responses, multiple providers, prompt presets, saved chats — all inside your window manager.
 
-![screenshot](assets/readme-assets/showcase.png)
+<img width="1366" height="768" alt="screenshot-2026-08-21_14-27-58" src="https://github.com/user-attachments/assets/2f304b1d-aae4-4232-9f0e-92b796c716c0" />
 
 ## Features
 
