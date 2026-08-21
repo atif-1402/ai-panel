@@ -16,7 +16,7 @@ A native [Omarchy](https://omarchy.org) shell plugin: a full AI chat sidebar sum
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/atif-1402/omarchy-ai-panel --enable --yes
+omarchy plugin add https://github.com/atif-1402/ai-panel.git --enable
 ```
 
 Then add a keybind to `~/.config/hypr/bindings.lua`:
@@ -27,19 +27,14 @@ o.bind("SUPER + ALT + A", "AI Panel", "omarchy-shell shell toggle io.github.atif
 
 Press **SUPER + ALT + A** and you're in.
 
+or 
+
+Run `omarchy-shell shell toggle io.github.atif-1402.ai-panel` in your terminal
+
+
 ## Setup
 
-Open the panel and run:
-
-```
-/key
-```
-
-Paste an API key for your provider (stored securely via the system keyring where available). Then pick a model:
-
-```
-/model
-```
+Open The panel and pick a model by typing `/model` and then add api key of the model you selected by `/key API_KEY`
 
 ## Slash commands
 
