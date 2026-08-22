@@ -102,6 +102,7 @@ ColumnLayout {
                 j++;
             }
             if (depth !== 0) return -1;
+            const jClose = j;
             let k = j + 1;
             let newlines = 0;
             while (k < n && /\s/.test(s[k])) {
@@ -109,6 +110,7 @@ ColumnLayout {
                 k++;
             }
             if (s[k] === "(") {
+                // Inline destination: CommonMark allows up to one newline gap.
                 k++; let pd = 1, q = null;
                 while (k < n) {
                     const c = s[k];
@@ -120,7 +122,9 @@ ColumnLayout {
                 }
                 return -1;
             }
-            if (s[k] === "[") {
+            if (s[k] === "[" && k === jClose + 1) {
+                // Full/collapsed reference: CommonMark requires the second
+                // bracket IMMEDIATELY after the label (no whitespace gap).
                 let d = 1; k++;
                 while (k < n) {
                     const c = s[k];
@@ -131,7 +135,10 @@ ColumnLayout {
                 }
                 return -1;
             }
-            return -1;
+            // Shortcut reference image (![label] with no inline/collapsed
+            // destination) is still an image construct — escape it like
+            // every other form.
+            return j + 1;
         }
 
         function tryParseMediaTag(pos) {
@@ -174,6 +181,18 @@ ColumnLayout {
                 if (r === -2) { out += "&lt;"; i++; continue; }
                 if (r !== -1) { out += "&lt;" + s.slice(i + 1, r - 1) + "&gt;"; i = r; continue; }
                 out += "<"; i++; continue;
+            }
+            // Link reference definitions ([label]: url at line start) are
+            // consumed invisibly by the markdown renderer. Escape the opener
+            // so the line renders as visible literal text instead.
+            if (i === 0 || s[i - 1] === "\n") {
+                const defMatch = /^ {0,3}\[[^\]\n]*\]:/.exec(s.slice(i, i + 2048));
+                if (defMatch) {
+                    const bracketOff = defMatch[0].indexOf("[");
+                    out += s.slice(i, i + bracketOff) + "\\[";
+                    i += bracketOff + 1;
+                    continue;
+                }
             }
             out += s[i]; i++;
         }
