@@ -782,8 +782,13 @@ Singleton {
         root.tokenCount.total = -1;
     }
 
+    // blockWrites: the script is executed the moment this returns. FileView
+    // writes are asynchronous by default, so without it the very first request
+    // races file creation and the ownership guard below refuses to run a file
+    // that isn't there yet — an exit 126 with no output on either stream.
     FileView {
         id: requesterScriptFile
+        blockWrites: true
     }
 
     // Multimodal request bodies can exceed the kernel's per-argument size
@@ -793,11 +798,13 @@ Singleton {
     FileView {
         id: requestBodyHeadFile
         path: `${Directories.aiTmpDir}/body-head.json`
+        blockWrites: true
     }
 
     FileView {
         id: requestBodyTailFile
         path: `${Directories.aiTmpDir}/body-tail.json`
+        blockWrites: true
     }
 
     // Agent CLIs read their prompt from stdin via this file: a long
@@ -806,6 +813,7 @@ Singleton {
     FileView {
         id: requestPromptFile
         path: `${Directories.aiTmpDir}/prompt.txt`
+        blockWrites: true
     }
 
     Process {
@@ -1055,6 +1063,12 @@ fi
         }
 
         onExited: (exitCode, exitStatus) => {
+            // A process-transport CLI that exits without output has failed in a
+            // way its event stream never described; the exit code is then the
+            // only clue there is, so hand it to the strategy before it reports.
+            if (requester.currentStrategy.transport() === "process") {
+                requester.currentStrategy.exitCode = exitCode;
+            }
             const result = requester.currentStrategy.onRequestFinished(requester.message);
             
             if (result.finished) {

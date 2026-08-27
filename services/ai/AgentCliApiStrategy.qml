@@ -40,6 +40,9 @@ ApiStrategy {
     // promotes diagnostics when a CLI exits without saying anything useful.
     property bool sawContent: false
 
+    // Exit status of the CLI, set by the service once the process ends.
+    property int exitCode: 0
+
     // Diagnostic lines seen this turn, kept so a silent failure can be
     // explained after the fact rather than leaving an empty bubble.
     property string diagnostics: ""
@@ -155,7 +158,7 @@ ApiStrategy {
         if (!root.sawContent) {
             const reason = root.diagnostics.length > 0
                 ? root.diagnostics
-                : `\`${root.binary}\` exited without producing a reply.`;
+                : `\`${root.binary}\` exited without producing a reply (exit code ${root.exitCode}).`;
             root.closeThink(message);
             message.content += `\n\n**Error**: ${reason}`;
             message.rawContent += `\n\n**Error**: ${reason}`;
@@ -218,5 +221,6 @@ ApiStrategy {
         root.inThink = false;
         root.sawContent = false;
         root.diagnostics = "";
+        root.exitCode = 0;
     }
 }
