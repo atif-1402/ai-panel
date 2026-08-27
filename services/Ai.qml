@@ -23,6 +23,9 @@ Singleton {
     property Component geminiApiStrategy: GeminiApiStrategy {}
     property Component openaiApiStrategy: OpenAiApiStrategy {}
     property Component mistralApiStrategy: MistralApiStrategy {}
+    property Component claudeCliApiStrategy: ClaudeCliApiStrategy {}
+    property Component cursorCliApiStrategy: CursorCliApiStrategy {}
+    property Component codexCliApiStrategy: CodexCliApiStrategy {}
     readonly property string interfaceRole: "interface"
     readonly property string apiKeyEnvVarName: "API_KEY"
 
@@ -51,6 +54,24 @@ Singleton {
     }
     property var postResponseHook
     property real temperature: Persistent.states?.ai?.temperature ?? 0.5
+
+    /**
+     * Working directory for agent-CLI models. Those agents read and write real
+     * files, so which project a chat points at is the most consequential thing
+     * about it: it persists across restarts, shows in the input bar, and is
+     * changed with /cwd. HTTP models ignore it entirely.
+     */
+    property string workingDirectory: Persistent.states?.ai?.workingDirectory ?? ""
+    readonly property string effectiveWorkingDirectory: root.workingDirectory.length > 0
+        ? root.workingDirectory
+        : CF.FileUtils.trimFileProtocol(Directories.home)
+
+    /**
+     * Session ids reported by agent CLIs, keyed by model id. A session here
+     * means the agent still holds this conversation — including its own tool
+     * results — so the next turn resumes it instead of replaying the history.
+     */
+    property var agentSessionIds: ({})
     property QtObject tokenCount: QtObject {
         property int input: -1
         property int output: -1
@@ -234,9 +255,15 @@ Singleton {
             ],
             "search": [],
             "none": [],
-        }
+        },
+        // Agent CLIs ship their own tools — shell, file edits, search — and
+        // decide themselves when to reach for them, so there is nothing for
+        // the panel to select here.
+        "claude-cli": { "none": [] },
+        "cursor-cli": { "none": [] },
+        "codex-cli": { "none": [] }
     }
-    property list<var> availableTools: Object.keys(root.tools[models[currentModelId]?.api_format])
+    property list<var> availableTools: Object.keys(root.tools[models[currentModelId]?.api_format] ?? { "none": [] })
     property var toolDescriptions: {
         "functions": Translation.tr("Commands, edit configs, search.\nTakes an extra turn to switch to search mode if that's needed"),
         "search": Translation.tr("Gives the model search capabilities (immediately)"),
@@ -346,15 +373,24 @@ Singleton {
     // gate in AiChat unlocks as soon as a vision-capable model is chosen.
     readonly property bool attachmentUnsupported: {
         const model = models[currentModelId];
-        return !!(root.pendingFilePath && root.pendingFilePath.length > 0 && model && model.supports_image_input !== true);
+        return !!(root.pendingFilePath && root.pendingFilePath.length > 0 && model
+            && model.supports_image_input !== true && model.supports_file_paths !== true);
     }
 
     property var apiStrategies: {
         "openai": openaiApiStrategy.createObject(this),
         "gemini": geminiApiStrategy.createObject(this),
         "mistral": mistralApiStrategy.createObject(this),
+        "claude-cli": claudeCliApiStrategy.createObject(this),
+        "cursor-cli": cursorCliApiStrategy.createObject(this),
+        "codex-cli": codexCliApiStrategy.createObject(this),
     }
     property ApiStrategy currentApiStrategy: apiStrategies[models[currentModelId]?.api_format || "openai"]
+
+    // True when the selected model is a local agent CLI rather than a chat API.
+    // Those models run commands in the working directory, so parts of the UI
+    // (working directory indicator, tool picker) key off this.
+    readonly property bool currentModelIsAgent: (models[currentModelId]?.api_format ?? "").endsWith("-cli")
 
     function addUserModels() {
         (Config?.options.ai?.extraModels ?? []).forEach(model => {
@@ -434,6 +470,74 @@ Singleton {
                 } catch (e) {
                     console.log("Could not fetch Ollama models:", e);
                 }
+            }
+        }
+    }
+
+    // Local agent CLIs, keyed by the binary that has to be on PATH.
+    readonly property var agentCliDefinitions: ({
+        "claude": {
+            "id": "claude-code",
+            "data": {
+                "name": "Claude Code",
+                "icon": "claude-symbolic",
+                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Uses the login the CLI already has.").arg("Anthropic"),
+                "homepage": "https://docs.claude.com/en/docs/claude-code/overview",
+                "endpoint": "",
+                "model": "",
+                "requires_key": false,
+                "api_format": "claude-cli",
+                "supports_file_paths": true,
+            }
+        },
+        "cursor-agent": {
+            "id": "cursor-agent",
+            "data": {
+                "name": "Cursor Agent",
+                "icon": "cursor-symbolic",
+                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Uses the login the CLI already has.").arg("Cursor"),
+                "homepage": "https://cursor.com/docs/cli/overview",
+                "endpoint": "",
+                "model": "",
+                "requires_key": false,
+                "api_format": "cursor-cli",
+                "supports_file_paths": true,
+            }
+        },
+        "codex": {
+            "id": "codex",
+            "data": {
+                "name": "Codex",
+                "icon": "codex-symbolic",
+                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Replies land in one piece rather than streaming.").arg("OpenAI"),
+                "homepage": "https://developers.openai.com/codex/cli",
+                "endpoint": "",
+                "model": "",
+                "requires_key": false,
+                "api_format": "codex-cli",
+                "supports_file_paths": true,
+            }
+        }
+    })
+
+    /**
+     * Agent CLIs are registered only when their binary is actually installed,
+     * so the model picker never offers an agent that cannot run.
+     */
+    Process {
+        id: getAgentClis
+        running: true
+        command: ["bash", "-c", "for binary in claude cursor-agent codex; do command -v \"$binary\" >/dev/null 2>&1 && printf '%s\\n' \"$binary\"; done"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (Config.options?.policies?.ai === 2) return; // Local-only policy
+                const installed = text.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+                installed.forEach(binary => {
+                    const definition = root.agentCliDefinitions[binary];
+                    if (!definition) return;
+                    root.addModel(definition.id, definition.data);
+                });
+                if (installed.length > 0) root.modelList = Object.keys(root.models);
             }
         }
     }
@@ -560,6 +664,62 @@ Singleton {
         }
     }
 
+    function setAgentSession(modelId, sessionId) {
+        if (!sessionId || sessionId.length === 0) return;
+        if (root.agentSessionIds[modelId] === sessionId) return;
+        root.agentSessionIds = Object.assign({}, root.agentSessionIds, { [modelId]: sessionId });
+    }
+
+    // Dropped whenever the conversation or its directory changes: a resumed
+    // session would otherwise answer from a history the panel no longer shows.
+    function clearAgentSessions() {
+        root.agentSessionIds = ({});
+    }
+
+    Process {
+        id: workingDirectoryCheck
+        property string candidate: ""
+        command: ["bash", "-c", 'cd "$1" 2>/dev/null && pwd', "bash", candidate]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const resolved = text.trim();
+                if (resolved.length === 0) {
+                    root.addMessage(Translation.tr("Not a directory: `%1`").arg(workingDirectoryCheck.candidate), root.interfaceRole);
+                    return;
+                }
+                root.workingDirectory = resolved;
+                Persistent.states.ai.workingDirectory = resolved;
+                // A different directory is a different project; the running
+                // agent's session belongs to the old one.
+                root.clearAgentSessions();
+                root.addMessage(Translation.tr("Working directory set to `%1`").arg(resolved), root.interfaceRole);
+            }
+        }
+    }
+
+    /**
+     * Sets the directory agent CLIs run in. Resolved through the shell so a
+     * typo fails here, with a message, rather than silently starting an agent
+     * that can write files somewhere unintended.
+     */
+    function setWorkingDirectory(path) {
+        const trimmed = String(path ?? "").trim();
+        if (trimmed.length === 0) {
+            root.printWorkingDirectory();
+            return;
+        }
+        let expanded = CF.FileUtils.trimFileProtocol(trimmed);
+        if (expanded === "~" || expanded.startsWith("~/")) {
+            expanded = CF.FileUtils.trimFileProtocol(Directories.home) + expanded.slice(1);
+        }
+        workingDirectoryCheck.candidate = expanded;
+        workingDirectoryCheck.running = true;
+    }
+
+    function printWorkingDirectory() {
+        root.addMessage(Translation.tr("Working directory: `%1`").arg(root.effectiveWorkingDirectory), root.interfaceRole);
+    }
+
     function setTool(tool) {
         if (!root.tools[models[currentModelId]?.api_format] || !(tool in root.tools[models[currentModelId]?.api_format])) {
             root.addMessage(Translation.tr("Invalid tool. Supported tools:\n- %1").arg(root.availableTools.join("\n- ")), root.interfaceRole);
@@ -616,6 +776,7 @@ Singleton {
     function clearMessages() {
         root.messageIDs = [];
         root.messageByID = ({});
+        root.clearAgentSessions();
         root.tokenCount.input = -1;
         root.tokenCount.output = -1;
         root.tokenCount.total = -1;
@@ -637,6 +798,14 @@ Singleton {
     FileView {
         id: requestBodyTailFile
         path: `${Directories.aiTmpDir}/body-tail.json`
+    }
+
+    // Agent CLIs read their prompt from stdin via this file: a long
+    // conversation would blow past the kernel's per-argument limit on the
+    // command line, and a file needs no shell quoting at all.
+    FileView {
+        id: requestPromptFile
+        path: `${Directories.aiTmpDir}/prompt.txt`
     }
 
     Process {
@@ -690,7 +859,7 @@ fi
             // Capability-aware attachment handling: text-only models get a
             // visible notice and the request is stopped entirely (defensive
             // fallback — the send path is already gated in AiChat).
-            if (root.pendingFilePath && !(model.supports_image_input === true)) {
+            if (root.pendingFilePath && !(model.supports_image_input === true || model.supports_file_paths === true)) {
                 root.addMessage(Translation.tr("This model doesn't support image input — switch to a vision-capable model or remove the attachment."), root.interfaceRole);
                 root.pendingFilePath = "";
                 return;
@@ -766,7 +935,25 @@ fi
             const IMAGE_PLACEHOLDER = '"{{ imageDataUrl }}"';
             const placeholderIdx = bodyJson.indexOf(IMAGE_PLACEHOLDER);
             let scriptRequestContent = ""
-            if (placeholderIdx !== -1) {
+            if (requester.currentStrategy.transport() === "process") {
+                /* Local agent CLI. There is no endpoint or body: the prompt
+                 * goes to a file that the CLI reads from stdin, and the CLI's
+                 * own JSON event stream takes the place of the HTTP response.
+                 * The same streaming caps still apply to its stdout. */
+                const activeSession = root.agentSessionIds[currentModelId] ?? "";
+                requestPromptFile.setText(requester.currentStrategy.buildPrompt(
+                    model,
+                    filteredMessageArray,
+                    root.systemPrompt,
+                    activeSession.length > 0,
+                    requester.message.localFilePath
+                ));
+                scriptRequestContent += requester.currentStrategy.buildProcessCommand(model, {
+                    "workingDirectory": root.effectiveWorkingDirectory,
+                    "sessionId": activeSession,
+                    "promptFile": `${Directories.aiTmpDir}/prompt.txt`,
+                }) + requester.streamPipelineSuffix;
+            } else if (placeholderIdx !== -1) {
                 requestBodyHeadFile.setText(bodyJson.slice(0, placeholderIdx));
                 requestBodyTailFile.setText(bodyJson.slice(placeholderIdx + IMAGE_PLACEHOLDER.length));
                 scriptRequestContent += `cat "${Directories.aiTmpDir}/body-head.json" > "${Directories.aiTmpDir}/request-body.json"\n`
@@ -852,6 +1039,9 @@ fi
                         root.tokenCount.output = result.tokenUsage.output;
                         root.tokenCount.total = result.tokenUsage.total;
                     }
+                    if (result.sessionId) {
+                        root.setAgentSession(requester.message.model, result.sessionId);
+                    }
                     if (result.finished) {
                         requester.markDone();
                     }
@@ -926,6 +1116,9 @@ fi
         for (let i = root.messageIDs.length - 1; i >= messageIndex; i--) {
             root.removeMessage(i);
         }
+        // An agent CLI still holds the turn being regenerated, so start a
+        // fresh session and replay the trimmed history instead of resuming.
+        root.clearAgentSessions();
         requester.makeRequest();
     }
 
