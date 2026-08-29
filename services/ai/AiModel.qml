@@ -11,7 +11,9 @@ import QtQuick;
  * - key_id: The identifier of the API key. Use the same identifier for models that can be accessed with the same key.
  * - key_get_link: Link to get an API key
  * - key_get_description: Description of pricing and how to get an API key
- * - api_format: The API format of the model. Can be "openai" or "gemini". Default is "openai".
+ * - api_format: The API format of the model. Can be "openai", "gemini", "mistral",
+ *   or one of the agent CLI formats ("claude-cli", "cursor-cli", "codex-cli").
+ *   Default is "openai".
  * - extraParams: Extra parameters to be passed to the model. This is a JSON object.
  */
 
@@ -28,6 +30,9 @@ QtObject {
     property string key_get_description
     property string api_format: "openai"
     property bool supports_image_input: false
+    // Agent CLIs read files off disk themselves, so an attachment is passed
+    // to them as a path rather than inlined as base64.
+    property bool supports_file_paths: false
     property var tools
     property var extraParams: ({})
 }

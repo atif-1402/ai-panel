@@ -61,6 +61,8 @@ Singleton {
             property JsonObject ai: JsonObject {
                 property string model: "gemini-2.5-flash"
                 property real temperature: 0.5
+                // Directory agent CLI models run in. Empty means $HOME.
+                property string workingDirectory: ""
             }
 
             property JsonObject cheatsheet: JsonObject {

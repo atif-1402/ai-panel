@@ -120,6 +120,13 @@ Item {
             }
         },
         {
+            name: "cwd",
+            description: Translation.tr("Set the working directory that agent models run in."),
+            execute: args => {
+                Ai.setWorkingDirectory(args.join(" "));
+            }
+        },
+        {
             name: "clear",
             description: Translation.tr("Clear chat history"),
             execute: () => {
@@ -742,10 +749,26 @@ echo "Hello, $name!"
                 }
 
                 ApiInputBoxIndicator {
-                    // Tool indicator
+                    // Tool indicator. Agent CLIs bring their own tools, so
+                    // there is nothing to pick.
+                    visible: !Ai.currentModelIsAgent
                     icon: "service_toolbox"
                     text: Ai.currentTool.charAt(0).toUpperCase() + Ai.currentTool.slice(1)
                     tooltipText: Translation.tr("Current tool: %1\nSet it with %2tool TOOL").arg(Ai.currentTool).arg(root.commandPrefix)
+                }
+
+                ApiInputBoxIndicator {
+                    // Working directory indicator. Only agent models act on
+                    // it, and when they do it decides which files are at
+                    // stake — so it stays visible next to the model name.
+                    visible: Ai.currentModelIsAgent
+                    icon: "folder_open"
+                    text: {
+                        const path = Ai.effectiveWorkingDirectory;
+                        const name = path.split("/").filter(part => part.length > 0).pop();
+                        return name ?? "/";
+                    }
+                    tooltipText: Translation.tr("Working directory: %1\nSet it with %2cwd PATH").arg(Ai.effectiveWorkingDirectory).arg(root.commandPrefix)
                 }
 
                 Item {
