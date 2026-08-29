@@ -45,8 +45,8 @@ They differ from the HTTP models in three ways worth knowing:
 
 | | Behaviour |
 |---|---|
-| **Tools** | Each agent brings its own — shell, file edits, search — and decides when to use them. The `/tool` picker is hidden for them. |
-| **Working directory** | They run in the directory shown next to the model name, set with `/cwd PATH`. This is where they read and write files. |
+| **Tools** | Each agent brings its own — shell, file edits, search — but actions that need approval are denied in the default read-only mode. The `/tool` picker is hidden for them. |
+| **Working directory** | They run in the directory shown next to the model name, set with `/cwd PATH`. This is what they inspect and, only after opting into full access, modify. |
 | **Memory** | The agent keeps the conversation itself. The first message replays the chat history; after that the panel resumes the agent's own session, so its context and tool results carry over. `/clear`, `/cwd` and regenerating start a fresh session. |
 
 Attachments are passed to agents as a file path rather than an image, since
