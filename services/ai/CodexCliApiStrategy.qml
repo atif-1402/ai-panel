@@ -26,8 +26,9 @@ AgentCliApiStrategy {
         }
 
         args.push("--json");
-        // Panels have no way to answer an approval prompt, so either run
-        // unattended or keep the sandbox read-only.
+        // Keep Codex in its read-only sandbox by default. Full access is an
+        // explicit opt-in because it bypasses both approval and sandbox
+        // protections.
         if (root.fullAccess) args.push("--dangerously-bypass-approvals-and-sandbox");
         else args.push("--sandbox", "read-only");
         args.push("--skip-git-repo-check");

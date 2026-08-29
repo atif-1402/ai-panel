@@ -52,13 +52,15 @@ They differ from the HTTP models in three ways worth knowing:
 Attachments are passed to agents as a file path rather than an image, since
 they can open files themselves.
 
-> **These agents run with full tool access, unattended.** A panel has no way to
-> answer an approval prompt, so they are launched with approvals bypassed. The
-> working directory is the boundary that matters — set it with `/cwd` before
-> asking for anything that writes.
+> **These agents are read-only by default.** A panel has no way to answer an
+> approval prompt, so actions that need approval are denied instead of silently
+> bypassing the CLI's normal protections.
 >
-> To keep agents read-only instead, set `ai.agentFullAccess` to `false` in
-> `~/.config/ai-panel/config.json`.
+> To explicitly opt into unattended full tool access, set
+> `ai.agentFullAccess` to `true` in `~/.config/ai-panel/config.json`. This makes
+> the panel launch the selected CLI with its approval and sandbox protections
+> bypassed. Only enable it when you trust the agent and the files and commands
+> available from the working directory selected with `/cwd`.
 
 Codex reports its answer in one piece rather than streaming it; progress
 (reasoning, commands, file edits) still appears as it happens.

@@ -23,10 +23,9 @@ AgentCliApiStrategy {
             "--verbose",
         ];
 
-        // With approvals bypassed the agent works in the chat's directory with
-        // the same reach the user has in a terminal. Without it, tools that
-        // would need approval are simply denied rather than stalling on a
-        // prompt nobody can answer.
+        // Full access is an explicit opt-in because this flag bypasses Claude's
+        // approval protections. By default, tools that would need approval are
+        // denied instead of stalling on a prompt nobody can answer.
         if (root.fullAccess) args.push("--dangerously-skip-permissions");
         else args.push("--disallowed-tools", "Bash Edit Write NotebookEdit");
 

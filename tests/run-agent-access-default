@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+agent_test_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+agent_test_config_dir="$(mktemp -d)"
+agent_test_result_file="$(mktemp)"
+agent_test_log_file="$(mktemp)"
+
+cleanup_agent_test() {
+    rm -rf -- "$agent_test_config_dir"
+    rm -f -- "$agent_test_result_file"
+    rm -f -- "$agent_test_log_file"
+}
+trap cleanup_agent_test EXIT
+
+mkdir -p "$agent_test_config_dir/ai-panel"
+printf '{}\n' > "$agent_test_config_dir/ai-panel/config.json"
+
+if ! XDG_CONFIG_HOME="$agent_test_config_dir" \
+    AI_PANEL_TEST_RESULT="$agent_test_result_file" \
+    QT_QPA_PLATFORM=offscreen \
+    quickshell --no-color --path "$agent_test_dir/../tst_agent_access_default.qml" \
+    > "$agent_test_log_file" 2>&1; then
+    cat "$agent_test_log_file" >&2
+    exit 1
+fi
+
+agent_test_result="$(<"$agent_test_result_file")"
+if [[ "$agent_test_result" != "PASS" ]]; then
+    printf '%s\n' "$agent_test_result" >&2
+    exit 1
+fi
+
+printf 'PASS: agent CLIs are read-only by default\n'

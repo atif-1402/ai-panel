@@ -481,7 +481,7 @@ Singleton {
             "data": {
                 "name": "Claude Code",
                 "icon": "claude-symbolic",
-                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Uses the login the CLI already has.").arg("Anthropic"),
+                "description": Translation.tr("Local agent | %1's coding agent, read-only by default. Full tool access is an explicit config opt-in. Uses the login the CLI already has.").arg("Anthropic"),
                 "homepage": "https://docs.claude.com/en/docs/claude-code/overview",
                 "endpoint": "",
                 "model": "",
@@ -495,7 +495,7 @@ Singleton {
             "data": {
                 "name": "Cursor Agent",
                 "icon": "cursor-symbolic",
-                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Uses the login the CLI already has.").arg("Cursor"),
+                "description": Translation.tr("Local agent | %1's coding agent, read-only by default. Full tool access is an explicit config opt-in. Uses the login the CLI already has.").arg("Cursor"),
                 "homepage": "https://cursor.com/docs/cli/overview",
                 "endpoint": "",
                 "model": "",
@@ -509,7 +509,7 @@ Singleton {
             "data": {
                 "name": "Codex",
                 "icon": "codex-symbolic",
-                "description": Translation.tr("Local agent | %1's coding agent, with full tool access in the chat's working directory. Replies land in one piece rather than streaming.").arg("OpenAI"),
+                "description": Translation.tr("Local agent | %1's coding agent, read-only by default. Full tool access is an explicit config opt-in. Replies land in one piece rather than streaming.").arg("OpenAI"),
                 "homepage": "https://developers.openai.com/codex/cli",
                 "endpoint": "",
                 "model": "",

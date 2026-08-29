@@ -52,8 +52,9 @@ ApiStrategy {
     // rather than emitted per event.
     property bool inThink: false
 
-    // Whether the agent may act on the working directory or only read it.
-    readonly property bool fullAccess: Config.options?.ai?.agentFullAccess ?? true
+    // Fail closed while config is unavailable: bypass flags are added only
+    // after the user explicitly opts into unrestricted tool access.
+    readonly property bool fullAccess: Config.options?.ai?.agentFullAccess ?? false
 
     function transport(): string { return "process" }
 

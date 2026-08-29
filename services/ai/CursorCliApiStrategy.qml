@@ -24,8 +24,9 @@ AgentCliApiStrategy {
             "--trust",
         ];
 
-        // Without --force every command stops on an approval prompt the panel
-        // has no way to answer.
+        // --force bypasses Cursor's approval protections, so add it only after
+        // an explicit full-access opt-in. Without it, actions requiring
+        // approval cannot proceed unattended.
         if (root.fullAccess) args.push("--force");
 
         if (model.model && model.model.length > 0) {
