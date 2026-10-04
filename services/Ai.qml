@@ -138,7 +138,6 @@ Singleton {
                     "function": {
                         "name": "get_shell_config",
                         "description": "Get the desktop shell config file contents",
-                        "parameters": {}
                     },
                 },
                 {
@@ -190,7 +189,6 @@ Singleton {
                     "function": {
                         "name": "get_shell_config",
                         "description": "Get the desktop shell config file contents",
-                        "parameters": {}
                     },
                 },
                 {
@@ -356,8 +354,20 @@ Singleton {
     }
     property ApiStrategy currentApiStrategy: apiStrategies[models[currentModelId]?.api_format || "openai"]
 
+    // IDs of models added from config, so live config reloads can drop removed ones
+    property var userModelIds: []
+
     function addUserModels() {
-        (Config?.options.ai?.extraModels ?? []).forEach(model => {
+        const extraModels = Config?.options.ai?.extraModels ?? [];
+        const newIds = extraModels.map(model => root.safeModelName(model["model"]));
+        const staleIds = root.userModelIds.filter(id => !newIds.includes(id));
+        if (staleIds.length > 0) {
+            let updatedModels = Object.assign({}, root.models);
+            staleIds.forEach(id => delete updatedModels[id]);
+            root.models = updatedModels;
+        }
+        root.userModelIds = newIds;
+        extraModels.forEach(model => {
             const safeModelName = root.safeModelName(model["model"]);
             root.addModel(safeModelName, model)
         });
@@ -366,6 +376,16 @@ Singleton {
     Connections {
         target: Config
         function onReadyChanged() {
+            if (!Config.ready) return;
+            root.addUserModels()
+        }
+    }
+
+    // Config.ready stays true on live config reloads, so onReadyChanged won't
+    // fire again. Watch extraModels directly to pick up runtime config edits.
+    Connections {
+        target: Config.options?.ai ?? null
+        function onExtraModelsChanged() {
             if (!Config.ready) return;
             root.addUserModels()
         }
@@ -415,7 +435,6 @@ Singleton {
                 try {
                     if (data.length === 0) return;
                     const dataJson = JSON.parse(data);
-                    root.modelList = [...root.modelList, ...dataJson];
                     dataJson.forEach(model => {
                         const safeModelName = root.safeModelName(model);
                         root.addModel(safeModelName, {
@@ -428,8 +447,8 @@ Singleton {
                             "requires_key": false,
                         })
                     });
-
-                    root.modelList = Object.keys(root.models);
+                    // NOTE: do not assign to root.modelList here — it is a binding
+                    // to Object.keys(root.models) and assignment would break it.
 
                 } catch (e) {
                     console.log("Could not fetch Ollama models:", e);
